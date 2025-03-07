@@ -1,9 +1,6 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import re
 import sys
-sys.path.append("/home/wangxihan/LangSplat/LangSplat-main/")
-sys.path.append("/home/wangxihan/LangSplat/LangSplat-main/submodules")
 import json
 import random
 import argparse
@@ -737,16 +734,16 @@ if __name__ == '__main__':
    
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="sam2.1_hiera_l.yaml")
-    parser.add_argument('--sam_ckpt', default="../submodules/segment_anything/checkpoints/sam2.1_hiera_large.pt")
-    parser.add_argument('--dataset_path', type=str, default="/home/a_datasets1/wangxihan/ScanNet/scene0000_00/")
-    parser.add_argument('--gsa_config', default="../submodules/groundingdino/groundingdino/config/GroundingDINO_SwinT_OGC.py")
-    parser.add_argument('--gsa_ckpt', type=str, default="../submodules/groundingdino/groundingdino_swint_ogc.pth")
-    parser.add_argument('--llava_ckpt', type=str, default="../submodules/llava/llava-next/llava_1.6")
+    parser.add_argument('--sam_ckpt', type=str)
+    parser.add_argument('--dataset_path', type=str)
+    parser.add_argument('--gsa_config', type=str, default="groundingdino/groundingdino/config/GroundingDINO_SwinT_OGC.py")
+    parser.add_argument('--gsa_ckpt', type=str, default="groundingdino/groundingdino_swint_ogc.pth")
+    parser.add_argument('--llava_ckpt', type=str, default="llava/llava-next/llava_1.6")
     parser.add_argument("--box_threshold", type=float, default=0.2)
     parser.add_argument("--text_threshold", type=float, default=0.2)
     parser.add_argument("--nms_threshold", type=float, default=0.2)
     parser.add_argument('--resolution', type=int, default=-1)
-    parser.add_argument('--output_dir', type=str, default="../vis/pairs")
+    parser.add_argument('--output_dir', type=str)
     parser.add_argument('--device', type=str, default="cuda:0")
     args = parser.parse_args()
     torch.set_default_dtype(torch.float32)
