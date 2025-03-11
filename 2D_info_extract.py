@@ -158,7 +158,7 @@ class LLaVaChat():
         outputs = self.tokenizer.decode(output_ids[0]).strip()
         return outputs
 
-def describe_LLAVA(mask_id, image, chat:LLaVaChat, mode):
+def describe_LLAVA(mask_id, image, chat:LLaVaChat, class_i, class_j, Cord_i, Cord_j, mode):
 
     ### caption
     image_sizes = [image.size]
@@ -166,27 +166,32 @@ def describe_LLAVA(mask_id, image, chat:LLaVaChat, mode):
     template = {}
 
     if mode == "category":
-        query_base = """Describe visible object categories in front of you."""
+        query_base = """Identify and list only the main object categories clearly visible in the image."""
+
         query_tail = """
-        Only provide the category names, no descriptions needed
-        If there are multiple objects belonging to the same category, 
-        you only need to output the category name once to avoid duplication.
+        Provide only the category names, separated by commas.
+        Only list the main object categories in the image.
+        Maximum 10 categories, focus on clear, foreground objects
+        Each category should be listed only once, even if multiple instances of the same category are present.
+        Avoid overly specific or recursive descriptions.
+        Do not include descriptions, explanations, or duplicates.
+        Do not include quotes, brackets, or any additional formatting in the output.
         Examples:
-        'Chair', 'Table', 'Chalkboard'
-        'Book', 'Bookshelf', 'Window'
+        Chair, Table, Window
         """
         query = query_base + "\n" + query_tail
         text = chat(query=query, image_features=image_tensor, image_sizes=image_sizes)
         template["categories"] = re.sub(r'\s+', ' ', text.replace("<s>", "").replace("</s>", "").replace("-", "").strip())
 
     if mode == "captions":
-        query_base = """Describe visible object in front of you, 
-        paying close attention to its spatial dimensions and visual attributes."""
+        query_base = """Describe the visible object in front of you, 
+        focusing on its spatial dimensions, visual attributes, and material properties."""
         
         query_tail = """
-        The object is one we usually see in indoor scenes. 
-        It signature must be short and sparse, describe appearance, geometry, material. Don't describe background.
-        Fit you description in four or five words.
+        The object is typically found in indoor scenes and its category is {class_i}.
+        Briefly describe the object within ten word. Keep the description concise.
+        Focus on the object's appearance, geometry, and material. Do not describe the background or unrelated details.
+        Ensure the description is specific and avoids vague terms.
         Examples: 
         a closed wooden door with a glass panel;
         a pillow with a floral pattern;
@@ -194,39 +199,41 @@ def describe_LLAVA(mask_id, image, chat:LLaVaChat, mode):
         a gray wall.
         """
         query = query_base + "\n" + query_tail
-        text = chat(query=query, image_features=image_tensor, image_sizes=image_sizes)
+        text = chat(query=query.format(class_i=class_i), image_features=image_tensor, image_sizes=image_sizes)
         template["id"] = mask_id
         template["description"] = text.replace("<s>", "").replace("</s>", "").strip()
 
     elif mode == "relationships":
-        query_base = """There are two objects selected by the red and green rectangular boxes, 
+        query_base = """There are two objects with category and 2D coordinate, 
         paying close attention to the positional relationship between two selected objects."""
         query_tail = """
-        You are a vision-language model capable of analyzing spatial relationships between objects in an image. In the given image, there are two boxed objects:
-        - The object selected by the red box is [Object A].
-        - The object selected by the blue box is [Object B].
+        You are capable of analyzing spatial relationships between objects in an image.
 
-        Based on the image content, analyze and describe the spatial relationship between these two objects. The spatial relationships may include the following types:
-        - Above/below (e.g., "Object A is above Object B")
-        - Left/right (e.g., "Object A is to the left of Object B")
-        - In front/behind (e.g., "Object A is in front of Object B")
-        - Containing (e.g., "Object A is contained within Object B")
-        - Adjacent (e.g., "Object A is next to Object B")
+        In the given image, there are two boxed objects:
+        - The object selected by the red box is [{class_i}], and its bounding box coordinates are {bbox1}.
+        - The object selected by the blue box is [{class_j}], and its bounding box coordinates are {bbox2}.
+
+        Note: The bounding box coordinates are in the format (x_min, y_min, x_max, y_max), where (x_min, y_min) represents the top-left corner of the box and (x_max, y_max) represents the bottom-right corner of the box.
+
+        The spatial relationship between [{class_i}] and [{class_j}] may include, but is not limited to, the following types:
+        - "Above" means Object A is located higher in vertical position (y_min smaller).
+        - "Below" means Object A is located lower in vertical position (y_min larger).
+        - "Left" means Object A's x_min is smaller than Object B's x_min.
+        - "Right" means Object A's x_min is larger than Object B's x_min.
+        - "Inside" means Object A's bounding box is fully contained within Object B's bounding box.
+        - "Contains" means Object A's bounding box fully contains Object B's bounding box.
+        - "Next to" means the distance between boxes is very small, without overlap.
 
         Please provide the output in the following format:
-        1. Object A and Object B names.
-        2. The spatial relationship between Object A and Object B.
-        3. A detailed description of the relationship (optional).
+        Coarse: The spatial relationship between {class_i} and {class_j}; Fine: A detailed description of the relationship (optional).
 
         Example output:
-        1. Object A: Chair; Object B: Table.
-        2. Spatial relationship: The chair is to the left of the table.
-        3. Detailed description: The chair is placed close to the table, facing toward it.
-
-        Generate the results based on the image content.
+        Coarse: The cup is on the table; Fine: The cup is resting near the center of the table, with its handle facing outward.
+        Coarse: The book is under the lamp; Fine: The book lies directly beneath the lamp, slightly tilted, as if recently placed.
+        Coarse: The cat is next to the sofa; Fine: The cat is sitting closely beside the sofa's left armrest, partially leaning on it.
         """
         query = query_base + "\n" + query_tail
-        text = chat(query=query, image_features=image_tensor, image_sizes=image_sizes)
+        text = chat(query=query.format(class_i=class_i, class_j=class_j, bbox1=Cord_i, bbox2=Cord_j), image_features=image_tensor, image_sizes=image_sizes)
         template["id_pair"] = mask_id
         template["relationship"] = text.replace("<s>", "").replace("</s>", "").strip()
 
@@ -465,6 +472,22 @@ def is_overlapping(box1, box2):
         return False
     return True
 
+def object_pairs(box1, box2):
+    x1_min, y1_min, x1_max, y1_max = box1
+    x2_min, y2_min, x2_max, y2_max = box2
+
+    center1 = torch.tensor([(box1[0] + box1[2]) / 2, (box1[1] + box1[3]) / 2])
+    center2 = torch.tensor([(box2[0] + box2[2]) / 2, (box2[1] + box2[3]) / 2])
+    dist = torch.norm(center1 - center2, p=2)
+
+    # Check if there is no overlap
+    if x1_max < x2_min or x2_max < x1_min or y1_max < y2_min or y2_max < y1_min:
+        overlapping = False
+    else:
+        overlapping = True
+    
+    return overlapping, dist
+
 def crop_and_blackout(image, bbox1, bbox2, padding):
     """
     从图像中截取指定索引的两个矩形框区域，并将其余部分设为黑色。
@@ -547,9 +570,10 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
     graph_dict = {}
     print(image_path, '******************')
     with torch.no_grad():
-        classes_info = describe_LLAVA(mask_id=None, image=image_pil, chat=llava_chat, mode='category')
-   
-        classes = list(set(classes_info['categories'].split('\n')))
+        classes_info = describe_LLAVA(mask_id=None, image=image_pil, chat=llava_chat, 
+                                      class_i=None, class_j=None, Cord_i=None, Cord_j=None, mode='category')
+        classes = list(set(classes_info['categories'].strip('"').split(',')))
+        classes = [item.strip().replace(',', '') for item in classes]
         print(classes, 'class')
         classes_set.update(classes)
 
@@ -564,8 +588,8 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
         detections = grounding_dino_model.predict_with_classes(
             image=image, # This function expects a BGR image...
             classes=classes,
-            box_threshold=0.2,
-            text_threshold=0.2,
+            box_threshold=0.5,
+            text_threshold=0.4,
         )
         
         if len(detections.class_id) > 0:
@@ -592,17 +616,24 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
             detections = grounding_dino_model.predict_with_classes(
             image=image, # This function expects a BGR image...
             classes=classes,
-            box_threshold=0.1,
-            text_threshold=0.1,
+            box_threshold=0.2,
+            text_threshold=0.2,
             )
 
-            assert len(detections.class_id) == 0, "Error: No target detected in the image!"
+            if len(detections.class_id) == 0:
+                assert len(detections.class_id) == 0, "Error: No target detected in the image!"
+
+            valid_idx = detections.class_id != -1
+            detections.xyxy = detections.xyxy[valid_idx]
+            detections.confidence = detections.confidence[valid_idx]
+            detections.class_id = detections.class_id[valid_idx]
 
         # sam segmentation
         seg_bbox, categories, match_indices = sam_predictor(seg_map, image, detections)
 
         # clip
         tiles = seg_bbox.to(args.device)
+        categories = categories.to(args.device)
 
         # captions of foreground objects
         descriptions = []
@@ -618,7 +649,9 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
             for mode in ['default', 's', 'm', 'l']:
                 match_idx[mode] = int(match_indices[idx][mode])
 
-            description = describe_LLAVA(mask_id=match_idx, image=cropped_image, chat=llava_chat, mode='captions')
+            class_i = classes[detections.class_id[idx]]
+            description = describe_LLAVA(mask_id=match_idx, image=cropped_image, chat=llava_chat, 
+                                         class_i=class_i, class_j=None, Cord_i=None, Cord_j=None, mode='captions')
             descriptions.append(description)
 
         graph_dict['captions'] = descriptions
@@ -635,12 +668,16 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
                     continue
                 torch.cuda.empty_cache()
                 # 计算特征相似度
-                similarity = torch.cosine_similarity(image_embed[idx_i].unsqueeze(0), 
-                                                    image_embed[idx_j].unsqueeze(0), dim=1).item()
+                #similarity = torch.cosine_similarity(image_embed[idx_i].unsqueeze(0), image_embed[idx_j].unsqueeze(0), dim=1).item()
                     
-                inter = is_overlapping(detections.xyxy[idx_i], detections.xyxy[idx_j])
+                inter, dist = object_pairs(detections.xyxy[idx_i], detections.xyxy[idx_j])
 
-                if similarity > 0.5 or inter:
+                class_i, class_j = classes[detections.class_id[idx_i]], classes[detections.class_id[idx_j]]
+
+                image_height, image_width = image.shape[:2]
+                image_diag = torch.sqrt(torch.tensor(image_width ** 2 + image_height ** 2))
+
+                if inter or dist < 0.3 * image_diag:
                     match_idx_i = {}
                     match_idx_j = {}
                     for mode in ['default', 's', 'm', 'l']:
@@ -651,7 +688,9 @@ def graph_construct(image_path, sam_predictor, sam_encoder, llava_chat, classes_
                     boxed_image = Image.fromarray(cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB))
                     output_path = os.path.join(args.output_dir, f"object_i{idx_i}_j{idx_j}.png")
                     boxed_image.save(output_path)
-                    relation_info = describe_LLAVA(mask_id=(match_idx_i, match_idx_j), image=boxed_image, chat=llava_chat, mode='relationships')
+                    relation_info = describe_LLAVA((match_idx_i, match_idx_j), boxed_image, llava_chat, 
+                                                   class_i, class_j, detections.xyxy[idx_i], detections.xyxy[idx_j], mode='relationships')
+                    print(relation_info)
                     relations.append(relation_info)
     
         graph_dict['relations'] = relations
@@ -734,16 +773,16 @@ if __name__ == '__main__':
    
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="sam2.1_hiera_l.yaml")
-    parser.add_argument('--sam_ckpt', type=str)
-    parser.add_argument('--dataset_path', type=str)
-    parser.add_argument('--gsa_config', type=str, default="groundingdino/groundingdino/config/GroundingDINO_SwinT_OGC.py")
-    parser.add_argument('--gsa_ckpt', type=str, default="groundingdino/groundingdino_swint_ogc.pth")
-    parser.add_argument('--llava_ckpt', type=str, default="llava/llava-next/llava_1.6")
+    parser.add_argument('--sam_ckpt', default="../submodules/segment_anything/checkpoints/sam2.1_hiera_large.pt")
+    parser.add_argument('--dataset_path', type=str, default="/home/a_datasets1/wangxihan/ScanNet/scene0000_00/")
+    parser.add_argument('--gsa_config', default="../submodules/groundingdino/groundingdino/config/GroundingDINO_SwinT_OGC.py")
+    parser.add_argument('--gsa_ckpt', type=str, default="../submodules/groundingdino/groundingdino_swint_ogc.pth")
+    parser.add_argument('--llava_ckpt', type=str, default="../submodules/llava/llava-next/llava_1.6")
     parser.add_argument("--box_threshold", type=float, default=0.2)
     parser.add_argument("--text_threshold", type=float, default=0.2)
     parser.add_argument("--nms_threshold", type=float, default=0.2)
     parser.add_argument('--resolution', type=int, default=-1)
-    parser.add_argument('--output_dir', type=str)
+    parser.add_argument('--output_dir', type=str, default="../vis/pairs")
     parser.add_argument('--device', type=str, default="cuda:0")
     args = parser.parse_args()
     torch.set_default_dtype(torch.float32)
