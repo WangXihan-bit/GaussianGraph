@@ -160,8 +160,15 @@
     <div class="container has-text-centered">
       
       <!-- First image -->
-      <img src="static/images/Method_Overview.jpg" style="max-width: 80%; height: auto; margin-bottom: 20px;" />
-      <h2 class="subtitle">Method overview.The goal of GaussianGraph is constructing 3D scene graph in open-world scenes for downstream tasks. First, We extract 2D features including CLIP, segmentation, captions and relations. Foreground objects and object-pairs are input to LLaVA with prompts to generate captions and relations, which are combined with CLIP features and segmentation by mask index. Second, with posed multi-view images, we utilize 3DGS to reconstruct the scene and perform ``Control-Follow" clustering strategy to generate Gaussian clusters. Third, after 3D Gaussian clustering, we build 3D scene graph through rendering each cluster to multi-view images and match them with CLIP features, captions and relations. Finally, 3D correction modules are used to refine the scene graph with four sub-modules.</h2>
+      <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <!-- Inner container for width control -->
+        <div style="max-width: 80%; text-align: left;">
+          <img src="static/images/Method_Overview.jpg" style="width: 100%; height: auto; margin-bottom: 10px;" />
+          <h2 class="subtitle" style="margin: 0;">
+            The goal of GaussianGraph is constructing 3D scene graph in open-world scenes for downstream tasks. First, We extract 2D features including CLIP, segmentation, captions and relations. Foreground objects and object-pairs are input to LLaVA with prompts to generate captions and relations, which are combined with CLIP features and segmentation by mask index. Second, with posed multi-view images, we utilize 3DGS to reconstruct the scene and perform ``Control-Follow" clustering strategy to generate Gaussian clusters. Third, after 3D Gaussian clustering, we build 3D scene graph through rendering each cluster to multi-view images and match them with CLIP features, captions and relations. Finally, 3D correction modules are used to refine the scene graph with four sub-modules.
+          </h2>
+        </div>
+      </div>
 
       <!-- Second image -->
       <div style="display: flex; justify-content: center; margin-bottom: 20px;">
@@ -175,8 +182,15 @@
       </div>
      
       <!-- Third image -->
-      <img src="static/images/Downstream tasks.jpg" style="max-width: 60%; height: auto; margin-bottom: 20px;" />
-      <h2 class="subtitle">Downsteam tasks including visual question answering and object grounding. The model needs to accurately identify the object attributes(blue) and spatial relationships(red) contained in the query and infer the correct objects. In the object grounding task, our model effectively mitigates the interference caused by similar objects in adjacent areas.</h2>
+      <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <!-- Inner container for width control -->
+        <div style="max-width: 60%; text-align: left;">
+          <img src="static/images/Downstream tasks.jpg" style="max-width: 60%; height: auto; margin-bottom: 20px;" />
+          <h2 class="subtitle" style="margin: 0;">
+            Downsteam tasks including visual question answering and object grounding. The model needs to accurately identify the object attributes(blue) and spatial relationships(red) contained in the query and infer the correct objects. In the object grounding task, our model effectively mitigates the interference caused by similar objects in adjacent areas.
+          </h2>
+        </div>
+      </div>
 
     </div> <!-- end container -->
   </div> <!-- end hero-body -->
