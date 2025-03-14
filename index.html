@@ -205,11 +205,11 @@
       <h2 class="title is-3">More Results on Replica and ScanNet Datasets</h2>
 
       <!-- Carousel -->
-      <div id="video-carousel" class="carousel">
+      <div id="video-carousel" class="carousel" style="width: 100%; overflow: hidden;">
         
         <!-- Video 1 -->
-        <div class="item">
-          <video autoplay muted loop controls style="width: 100%; height: auto;">
+        <div class="item" style="display: flex; justify-content: center; align-items: center;">
+          <video autoplay muted loop controls style="max_width: 100%; max-height: 500px; object-fit: cover;">
             <source src="static/videos/scannet0000_compress.mp4" type="video/mp4">
             Your browser does not support the video tag.
           </video>
@@ -220,7 +220,8 @@
     </div> <!-- End Container -->
   </div> <!-- End Hero Body -->
 </section>
-
+<!-- Video Carousel Section End-->
+  
 
 <!--BibTex citation -->
   <section class="section" id="BibTeX">
